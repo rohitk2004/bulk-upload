@@ -1,0 +1,6 @@
+__pycache__/
+temp_uploads/
+*.pdf
+upload_history.txt
+venv/
+.env
