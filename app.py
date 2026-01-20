@@ -4,6 +4,23 @@ import time
 import subprocess
 import sys
 
+# --- Playwright Installation for Streamlit Cloud ---
+def install_playwright():
+    try:
+        # Check if we can run a simple playwright command or if browsers exist
+        # This is a basic check; usually running install is safe as it skips if present
+        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+        print("Playwright browsers installed.")
+    except Exception as e:
+        print(f"Error installing Playwright browsers: {e}")
+
+# Run installation once (naive check)
+if not os.path.exists("playwright-installed.txt"): # limit re-runs
+    install_playwright()
+    # Create marker file
+    with open("playwright-installed.txt", "w") as f:
+        f.write("done")
+
 st.set_page_config(page_title="PDF Bulk Uploader", layout="wide")
 
 st.title("📂 PDF Bulk Uploader")
