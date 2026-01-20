@@ -5,21 +5,29 @@ import subprocess
 import sys
 
 # --- Playwright Installation for Streamlit Cloud ---
-def install_playwright():
+def install_playwright(force=False):
+    if os.path.exists("playwright-installed.txt") and not force:
+        return
+        
     try:
-        # Check if we can run a simple playwright command or if browsers exist
-        # This is a basic check; usually running install is safe as it skips if present
-        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-        print("Playwright browsers installed.")
+        with st.spinner("Installing Playwright Browsers... (this may take a minute)"):
+            # Install Chromium
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+            
+            # Create marker file
+            with open("playwright-installed.txt", "w") as f:
+                f.write("done")
+            print("Playwright browsers installed.")
     except Exception as e:
-        print(f"Error installing Playwright browsers: {e}")
+        st.error(f"Error installing Playwright: {e}")
 
-# Run installation once (naive check)
-if not os.path.exists("playwright-installed.txt"): # limit re-runs
-    install_playwright()
-    # Create marker file
-    with open("playwright-installed.txt", "w") as f:
-        f.write("done")
+# Check on startup
+install_playwright()
+
+# Manual Re-install button for debugging
+if st.sidebar.button("Re-install Browser Binaries"):
+    install_playwright(force=True)
+    st.sidebar.success("Re-installation command sent. Please reload the app if it persists.")
 
 st.set_page_config(page_title="PDF Bulk Uploader", layout="wide")
 
@@ -78,21 +86,24 @@ def process_uploads_subprocess(files):
                         "File Name": uploaded_file.name,
                         "Status": "✅ Success",
                         "Assumed URL": assumed_url,
-                        "Details": "Processed via subprocess"
+                        "Details": "Success",
+                        "Raw Output": output
                     })
                 else:
                     st.session_state.results.append({
                         "File Name": uploaded_file.name,
                         "Status": "⚠️ Completed with Warning",
                         "Assumed URL": "-",
-                        "Details": "Script finished but success msg not found. Check logs."
+                        "Details": "Confirmation not found",
+                        "Raw Output": output + "\n" + result.stderr
                     })
             else:
                  st.session_state.results.append({
                     "File Name": uploaded_file.name,
                     "Status": "❌ Failed",
                     "Assumed URL": "-",
-                    "Details": f"Error: {result.stderr}"
+                    "Details": "Error (Exit Code 1)",
+                    "Raw Output": result.stderr
                 })
                 
         except Exception as e:
@@ -100,7 +111,8 @@ def process_uploads_subprocess(files):
                 "File Name": uploaded_file.name,
                 "Status": "❌ Error",
                 "Assumed URL": "-",
-                "Details": str(e)
+                "Details": str(e),
+                "Raw Output": str(e)
             })
         
         # Update Progress
@@ -124,13 +136,23 @@ if st.session_state.results:
     import pandas as pd
     df = pd.DataFrame(st.session_state.results)
     
+    # Display main table
     st.dataframe(
-        df,
+        df[["File Name", "Status", "Assumed URL"]],
         column_config={
-            "Status": st.column_config.TextColumn("Status", width="medium"),
-            "Assumed URL": st.column_config.LinkColumn("Assumed URL", width="large"),
-            "Details": st.column_config.TextColumn("Details", width="large"),
+            "Assumed URL": st.column_config.LinkColumn("Assumed URL"),
         },
         use_container_width=True,
         hide_index=True,
     )
+    
+    # Error details below
+    st.subheader("Logs & Details")
+    for res in st.session_state.results:
+        if res["Status"] != "✅ Success":
+            unique_key = f"{res['File Name']}_{res['Status']}"
+            with st.expander(f"Details for {res['File Name']} ({res['Status']})"):
+                st.text("Details:")
+                st.code(res["Details"])
+                st.text("Full Output:")
+                st.code(res.get("Raw Output", ""))
