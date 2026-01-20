@@ -119,4 +119,18 @@ if start_btn and uploaded_files:
 
 if st.session_state.results:
     st.subheader("Submission Results")
-    st.table(st.session_state.results)
+    
+    # Convert to DataFrame for better display
+    import pandas as pd
+    df = pd.DataFrame(st.session_state.results)
+    
+    st.dataframe(
+        df,
+        column_config={
+            "Status": st.column_config.TextColumn("Status", width="medium"),
+            "Assumed URL": st.column_config.LinkColumn("Assumed URL", width="large"),
+            "Details": st.column_config.TextColumn("Details", width="large"),
+        },
+        use_container_width=True,
+        hide_index=True,
+    )
